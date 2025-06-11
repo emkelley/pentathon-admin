@@ -93,6 +93,8 @@ const pendingGifts = ref<
       totalTime: number;
       count: number;
       timeout: NodeJS.Timeout;
+      firstGiftTime: number;
+      lastGiftTime: number;
     }
   >
 >(new Map());
@@ -188,7 +190,19 @@ function formatSubscriptionMessage(data: any): string {
   } else if (msgId === "sub") {
     return `${username} | subscribed | +${timeFormatted}`;
   } else if (msgId === "subgift") {
-    return `${username} | ${subCount}x gifted  | ${timeFormatted}`;
+    // Better formatting for large gift counts
+    const count = subCount || 1;
+    if (count >= 100) {
+      return `${username} | ${count} GIFTED SUBS! | +${timeFormatted}`;
+    } else if (count >= 50) {
+      return `${username} | ${count} gifted subs! | +${timeFormatted}`;
+    } else if (count >= 10) {
+      return `${username} | ${count} gifted subs | +${timeFormatted}`;
+    } else if (count > 1) {
+      return `${username} | ${count}x gifted | +${timeFormatted}`;
+    } else {
+      return `${username} | gifted sub | +${timeFormatted}`;
+    }
   } else {
     return `${username} | ${msgId} | +${timeFormatted}`;
   }
@@ -199,9 +213,11 @@ function addToastToQueue(
   amount: number,
   subscriptionData?: any
 ): void {
-  // Handle gifted subs grouping
+  // Handle gifted subs grouping with improved batching for large gift counts
   if (type === "subscription" && subscriptionData?.msgId === "subgift") {
     const username = subscriptionData.username;
+    const giftCount = subscriptionData.giftCount || 1;
+    const now = Date.now();
     const existing = pendingGifts.value.get(username);
 
     if (existing) {
@@ -209,22 +225,52 @@ function addToastToQueue(
       clearTimeout(existing.timeout);
 
       // Update the existing pending gift
-      existing.count += subscriptionData.giftCount || 1;
+      existing.count += giftCount;
       existing.totalTime += amount;
+      existing.lastGiftTime = now;
       existing.subscriptionData.subCount = existing.count;
       existing.subscriptionData.timeAdded = existing.totalTime;
+      existing.subscriptionData.giftCount = existing.count;
     } else {
       // Create new pending gift
       pendingGifts.value.set(username, {
-        subscriptionData: { ...subscriptionData },
+        subscriptionData: {
+          ...subscriptionData,
+          subCount: giftCount,
+          giftCount: giftCount,
+        },
         totalTime: amount,
-        count: subscriptionData.giftCount || 1,
+        count: giftCount,
         timeout: null as any, // Will be set below
+        firstGiftTime: now,
+        lastGiftTime: now,
       });
     }
 
-    // Set/reset timeout to group rapid gifts (500ms window)
     const pendingGift = pendingGifts.value.get(username)!;
+
+    // Dynamic timeout based on gift count and time elapsed
+    // For large batches, we need longer timeouts to catch all gifts
+    let timeout = 1000; // Base timeout
+    const timeSinceFirst = now - pendingGift.firstGiftTime;
+
+    if (pendingGift.count >= 50) {
+      // Very large batches need more time
+      timeout = Math.min(2000, 500 + pendingGift.count * 10);
+    } else if (pendingGift.count >= 20) {
+      // Large batches need extra time
+      timeout = Math.min(1500, 500 + pendingGift.count * 15);
+    } else if (pendingGift.count >= 5) {
+      // Medium batches get some extra time
+      timeout = Math.min(1000, 500 + pendingGift.count * 20);
+    }
+
+    // If we've been batching for a while, reduce timeout to prevent infinite delays
+    if (timeSinceFirst > 3000) {
+      timeout = Math.min(timeout, 300);
+    }
+
+    // Set/reset timeout to group rapid gifts
     pendingGift.timeout = setTimeout(() => {
       // Add the grouped gift to toast queue
       const toastData = {
@@ -237,7 +283,7 @@ function addToastToQueue(
       toastQueue.value.push(toastData);
       pendingGifts.value.delete(username);
       processToastQueue();
-    }, 500);
+    }, timeout);
 
     return;
   }
@@ -270,14 +316,29 @@ function processToastQueue(): void {
       visible: true,
     };
 
-    // Calculate toast duration based on subscription type
+    // Calculate toast duration based on subscription type and count
     let duration = 3000; // Default for regular subs and resubs
 
     if (nextToast.type === "subscription" && nextToast.subscriptionData) {
       const { msgId, giftCount } = nextToast.subscriptionData;
 
       if (msgId === "subgift") {
-        duration = giftCount === 1 ? 3000 : giftCount > 10 ? 10000 : 5000;
+        // Scale duration based on gift count for better visibility of large batches
+        if (giftCount >= 100) {
+          duration = 15000; // 15 seconds for huge batches (100+)
+        } else if (giftCount >= 50) {
+          duration = 12000; // 12 seconds for very large batches (50-99)
+        } else if (giftCount >= 25) {
+          duration = 10000; // 10 seconds for large batches (25-49)
+        } else if (giftCount >= 10) {
+          duration = 8000; // 8 seconds for medium batches (10-24)
+        } else if (giftCount >= 5) {
+          duration = 6000; // 6 seconds for small batches (5-9)
+        } else if (giftCount > 1) {
+          duration = 5000; // 5 seconds for mini batches (2-4)
+        } else {
+          duration = 3000; // 3 seconds for single gifts
+        }
       } else if (msgId === "sub" || msgId === "resub") {
         // Regular subs and resubs: 3 seconds
         duration = 3000;
@@ -415,22 +476,61 @@ function handleKeyDown(event: KeyboardEvent): void {
 }
 
 // Lifecycle
+let cleanupInterval: NodeJS.Timeout;
+
 onMounted(() => {
   initialize();
 
   // Add keyboard event listener
   window.addEventListener("keydown", handleKeyDown);
+
+  // Add periodic cleanup for stale pending gifts (safety measure)
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    const staleThreshold = 10000; // 10 seconds
+
+    pendingGifts.value.forEach((pendingGift, username) => {
+      if (now - pendingGift.lastGiftTime > staleThreshold) {
+        console.warn(
+          `Cleaning up stale pending gift for ${username} with ${pendingGift.count} gifts`
+        );
+        clearTimeout(pendingGift.timeout);
+
+        // Force process the stale gift
+        const toastData = {
+          type: "subscription" as const,
+          title: "Subscription!",
+          amount: "",
+          subscriptionData: pendingGift.subscriptionData,
+        };
+
+        toastQueue.value.push(toastData);
+        pendingGifts.value.delete(username);
+        processToastQueue();
+      }
+    });
+  }, 5000); // Check every 5 seconds
 });
 
 onUnmounted(() => {
   // Clean up keyboard event listener
   window.removeEventListener("keydown", handleKeyDown);
 
+  // Clean up cleanup interval
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+  }
+
   // Clean up pending gift timeouts
   pendingGifts.value.forEach((pendingGift) => {
     clearTimeout(pendingGift.timeout);
   });
   pendingGifts.value.clear();
+
+  // Clear any remaining toasts in queue
+  toastQueue.value.length = 0;
+  currentToast.value.visible = false;
+  isProcessingQueue.value = false;
 });
 </script>
 

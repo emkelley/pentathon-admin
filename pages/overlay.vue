@@ -1,50 +1,3 @@
-<template>
-  <div class="overlay-container">
-    <div class="flex flex-col gap-4 h-full w-full items-center justify-center relative">
-      <div class="timer-display" :class="timerDisplayClass" :style="timerDisplayStyle">
-        {{ formattedTime }}
-      </div>
-
-      <!-- Toast Notification -->
-      <Transition name="toast">
-        <div
-          v-if="currentToast.visible"
-          class="absolute bottom-36 left-0 right-0 flex items-center justify-center gap-3 px-6 py-4.5 rounded-xl shadow-2xl font-nunito font-semibold z-[1000] text-black w-fit mx-auto"
-          :style="toastStyle"
-        >
-          <div class="flex items-center justify-center gap-2">
-            <div class="text-4xl font-bold">
-              <template
-                v-if="currentToast.type === 'subscription' && currentToast.subscriptionData"
-              >
-                {{ formatSubscriptionMessage(currentToast.subscriptionData) }}
-              </template>
-              <template v-else>
-                {{ currentToast.amount }}
-              </template>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </div>
-
-    <!-- Debug Panel -->
-    <DebugPanel
-      :timer-data="timerData"
-      :is-flashing="isFlashing"
-      :is-visible="isDebugMode"
-      @add-time="addTestTime"
-      @flash="triggerFlash"
-      @toggle="toggleTimer"
-      @test-toast="handleTestToast"
-      @simulate-sub="handleSimulateSub"
-      @simulate-gift="handleSimulateGift"
-      @simulate-resub="handleSimulateResub"
-      @simulate-random-sub="handleSimulateRandomSub"
-    />
-  </div>
-</template>
-
 <script setup lang="ts">
 // Meta
 useSeoMeta({
@@ -59,6 +12,7 @@ const {
   latestSubscription,
   initialize,
   addTime,
+  settings,
   simulateSubscription,
   simulateGiftSubscription,
   simulateResubscription,
@@ -186,25 +140,26 @@ function formatSubscriptionMessage(data: any): string {
   const timeFormatted = formatTimeAmount(timeAdded);
 
   if (msgId === "resub") {
-    return `${username} | resubscribed | +${timeFormatted}`;
+    return `${username} resubscribed`;
   } else if (msgId === "sub") {
-    return `${username} | subscribed | +${timeFormatted}`;
+    return `${username} subscribed`;
   } else if (msgId === "subgift") {
     // Better formatting for large gift counts
     const count = subCount || 1;
+    console.log(data);
     if (count >= 100) {
-      return `${username} | ${count} GIFTED SUBS! | +${timeFormatted}`;
+      return `${username} ${count} GIFTED SUBS!`;
     } else if (count >= 50) {
-      return `${username} | ${count} gifted subs! | +${timeFormatted}`;
+      return `${username} ${count} gifted subs!`;
     } else if (count >= 10) {
-      return `${username} | ${count} gifted subs | +${timeFormatted}`;
+      return `${username} ${count} gifted subs`;
     } else if (count > 1) {
-      return `${username} | ${count}x gifted | +${timeFormatted}`;
+      return `${username} ${count}x gifted`;
     } else {
-      return `${username} | gifted sub | +${timeFormatted}`;
+      return `${username} gifted sub`;
     }
   } else {
-    return `${username} | ${msgId} | +${timeFormatted}`;
+    return `${username} ${msgId}`;
   }
 }
 
@@ -533,6 +488,53 @@ onUnmounted(() => {
   isProcessingQueue.value = false;
 });
 </script>
+
+<template>
+  <div class="overlay-container">
+    <div class="flex flex-col gap-4 h-full w-full items-center justify-center relative">
+      <div class="timer-display" :class="timerDisplayClass" :style="timerDisplayStyle">
+        {{ formattedTime }}
+      </div>
+
+      <!-- Toast Notification -->
+      <Transition name="toast">
+        <div
+          v-if="currentToast.visible"
+          class="absolute bottom-32 left-0 right-0 flex items-center justify-center gap-3 px-6 py-4.5 rounded-xl shadow-2xl font-nunito font-semibold z-[1000] text-black w-fit mx-auto whitespace-nowrap"
+          :style="toastStyle"
+        >
+          <div class="flex items-center justify-center gap-2">
+            <div class="text-4xl font-bold">
+              <template
+                v-if="currentToast.type === 'subscription' && currentToast.subscriptionData"
+              >
+                {{ formatSubscriptionMessage(currentToast.subscriptionData) }}
+              </template>
+              <template v-else>
+                {{ currentToast.amount }}
+              </template>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </div>
+
+    <!-- Debug Panel -->
+    <DebugPanel
+      :timer-data="timerData"
+      :is-flashing="isFlashing"
+      :is-visible="isDebugMode"
+      @add-time="addTestTime"
+      @flash="triggerFlash"
+      @toggle="toggleTimer"
+      @test-toast="handleTestToast"
+      @simulate-sub="handleSimulateSub"
+      @simulate-gift="handleSimulateGift"
+      @simulate-resub="handleSimulateResub"
+      @simulate-random-sub="handleSimulateRandomSub"
+    />
+  </div>
+</template>
 
 <style scoped>
 .overlay-container {

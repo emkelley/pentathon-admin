@@ -1,111 +1,3 @@
-<template>
-  <div
-    class="timer-section bg-gradient-to-br from-slate-800 to-slate-700 text-white rounded-xl p-5 text-center shadow-2xl border border-white/10"
-  >
-    <div class="text-7xl font-bold mb-2" :style="timerStyle" ref="timerDisplay">
-      {{ formattedTime }}
-    </div>
-    <div class="timer-status text-base mb-4 opacity-90">
-      <code class="bg-gray-800 text-gray-300 px-3 py-2 rounded-md text-sm font-mono">
-        OBS Overlay:
-        <a
-          href="https://pentathon.emk.dev/overlay"
-          target="_blank"
-          class="text-blue-400 hover:text-blue-300"
-        >
-          pentathon.emk.dev/overlay
-        </a>
-      </code>
-    </div>
-
-    <!-- Timer Controls -->
-    <div class="timer-controls flex gap-2 justify-center flex-wrap my-8">
-      <button
-        class="btn-success border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide disabled:opacity-60 disabled:cursor-not-allowed"
-        @click="startTimer"
-        :disabled="timerData.isActive"
-      >
-        ▶️ Start
-      </button>
-      <button
-        class="btn-danger border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide disabled:opacity-60 disabled:cursor-not-allowed"
-        @click="stopTimer"
-        :disabled="!timerData.isActive"
-      >
-        ⏸️ Stop
-      </button>
-      <button
-        class="btn-secondary border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide"
-        @click="resetTimer"
-      >
-        🔄 Reset
-      </button>
-    </div>
-
-    <!-- Manual Timer Controls -->
-    <div
-      class="manual-timer-controls mt-4 pt-4 border-t-2 border-white/20 bg-white/10 rounded-xl p-4"
-    >
-      <div
-        class="manual-timer-inputs flex items-center justify-center mb-4 bg-white/15 p-4 rounded-xl backdrop-blur-sm md:flex-row flex-col md:gap-2 gap-4"
-      >
-        <div class="time-input-group flex flex-col items-center gap-1">
-          <input
-            type="number"
-            v-model.number="manualHours"
-            min="0"
-            max="99"
-            class="time-input w-[70px] h-11 p-2 border-2 border-white/40 rounded-xl bg-white/95 text-gray-800 text-lg font-bold text-center transition-all duration-200 shadow-sm hover:border-white/60 focus:border-green-500 focus:bg-white focus:shadow-md focus:outline-none"
-          />
-          <label class="text-white/95 text-xs font-bold uppercase tracking-wide text-shadow"
-            >Hours</label
-          >
-        </div>
-        <div
-          class="time-separator hidden md:block text-white text-3xl font-bold opacity-90 text-shadow -mt-4"
-        >
-          :
-        </div>
-        <div class="time-input-group flex flex-col items-center gap-1">
-          <input
-            type="number"
-            v-model.number="manualMinutes"
-            min="0"
-            max="59"
-            class="time-input w-[70px] h-11 p-2 border-2 border-white/40 rounded-xl bg-white/95 text-gray-800 text-lg font-bold text-center transition-all duration-200 shadow-sm hover:border-white/60 focus:border-green-500 focus:bg-white focus:shadow-md focus:outline-none"
-          />
-          <label class="text-white/95 text-xs font-bold uppercase tracking-wide text-shadow"
-            >Minutes</label
-          >
-        </div>
-        <div
-          class="time-separator hidden md:block text-white text-3xl font-bold opacity-90 text-shadow -mt-4"
-        >
-          :
-        </div>
-        <div class="time-input-group flex flex-col items-center gap-1">
-          <input
-            type="number"
-            v-model.number="manualSeconds"
-            min="0"
-            max="59"
-            class="time-input w-[70px] h-11 p-2 border-2 border-white/40 rounded-xl bg-white/95 text-gray-800 text-lg font-bold text-center transition-all duration-200 shadow-sm hover:border-white/60 focus:border-green-500 focus:bg-white focus:shadow-md focus:outline-none"
-          />
-          <label class="text-white/95 text-xs font-bold uppercase tracking-wide text-shadow"
-            >Seconds</label
-          >
-        </div>
-      </div>
-      <button
-        class="btn-success border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide w-full mt-2"
-        @click="setManualTimer"
-      >
-        Manually Set Timer
-      </button>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 interface TimerData {
   timeRemaining: number;
@@ -220,7 +112,117 @@ async function setManualTimer() {
 
   emit("set-manual-timer", totalSeconds);
 }
+
+const overlayUrl = computed(() =>
+  typeof window !== "undefined"
+    ? `${window.location.origin}/overlay`
+    : `https://pentathon.emk.dev/overlay`
+);
 </script>
+
+<template>
+  <div
+    class="timer-section bg-gradient-to-br from-slate-800 to-slate-700 text-white rounded-xl p-5 text-center shadow-2xl border border-white/10"
+  >
+    <div class="text-7xl font-bold mb-2" :style="timerStyle" ref="timerDisplay">
+      {{ formattedTime }}
+    </div>
+    <div class="timer-status text-base mb-4 opacity-90">
+      <code class="bg-gray-800 text-gray-300 px-3 py-2 rounded-md text-sm font-mono">
+        OBS Overlay:
+        <a :href="overlayUrl" target="_blank" class="text-blue-400 hover:text-blue-300">
+          {{ overlayUrl }}
+        </a>
+      </code>
+    </div>
+
+    <!-- Timer Controls -->
+    <div class="timer-controls flex gap-2 justify-center flex-wrap my-8">
+      <button
+        class="btn-success border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide disabled:opacity-60 disabled:cursor-not-allowed"
+        @click="startTimer"
+        :disabled="timerData.isActive"
+      >
+        ▶️ Start
+      </button>
+      <button
+        class="btn-danger border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide disabled:opacity-60 disabled:cursor-not-allowed"
+        @click="stopTimer"
+        :disabled="!timerData.isActive"
+      >
+        ⏸️ Stop
+      </button>
+      <button
+        class="btn-secondary border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide"
+        @click="resetTimer"
+      >
+        🔄 Reset
+      </button>
+    </div>
+
+    <!-- Manual Timer Controls -->
+    <div
+      class="manual-timer-controls mt-4 pt-4 border-t-2 border-white/20 bg-white/10 rounded-xl p-4"
+    >
+      <div
+        class="manual-timer-inputs flex items-center justify-center mb-4 bg-white/15 p-4 rounded-xl backdrop-blur-sm md:flex-row flex-col md:gap-2 gap-4"
+      >
+        <div class="time-input-group flex flex-col items-center gap-1">
+          <input
+            type="number"
+            v-model.number="manualHours"
+            min="0"
+            max="99"
+            class="time-input w-[70px] h-11 p-2 border-2 border-white/40 rounded-xl bg-white/95 text-gray-800 text-lg font-bold text-center transition-all duration-200 shadow-sm hover:border-white/60 focus:border-green-500 focus:bg-white focus:shadow-md focus:outline-none"
+          />
+          <label class="text-white/95 text-xs font-bold uppercase tracking-wide text-shadow"
+            >Hours</label
+          >
+        </div>
+        <div
+          class="time-separator hidden md:block text-white text-3xl font-bold opacity-90 text-shadow -mt-4"
+        >
+          :
+        </div>
+        <div class="time-input-group flex flex-col items-center gap-1">
+          <input
+            type="number"
+            v-model.number="manualMinutes"
+            min="0"
+            max="59"
+            class="time-input w-[70px] h-11 p-2 border-2 border-white/40 rounded-xl bg-white/95 text-gray-800 text-lg font-bold text-center transition-all duration-200 shadow-sm hover:border-white/60 focus:border-green-500 focus:bg-white focus:shadow-md focus:outline-none"
+          />
+          <label class="text-white/95 text-xs font-bold uppercase tracking-wide text-shadow"
+            >Minutes</label
+          >
+        </div>
+        <div
+          class="time-separator hidden md:block text-white text-3xl font-bold opacity-90 text-shadow -mt-4"
+        >
+          :
+        </div>
+        <div class="time-input-group flex flex-col items-center gap-1">
+          <input
+            type="number"
+            v-model.number="manualSeconds"
+            min="0"
+            max="59"
+            class="time-input w-[70px] h-11 p-2 border-2 border-white/40 rounded-xl bg-white/95 text-gray-800 text-lg font-bold text-center transition-all duration-200 shadow-sm hover:border-white/60 focus:border-green-500 focus:bg-white focus:shadow-md focus:outline-none"
+          />
+          <label class="text-white/95 text-xs font-bold uppercase tracking-wide text-shadow"
+            >Seconds</label
+          >
+        </div>
+      </div>
+      <button
+        class="btn-success border-none text-white py-2 px-5 rounded-xl cursor-pointer text-sm font-bold transition-shadow duration-200 relative overflow-hidden uppercase tracking-wide w-full mt-2"
+        @click="setManualTimer"
+      >
+        Manually Set Timer
+      </button>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .btn {

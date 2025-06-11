@@ -205,7 +205,18 @@ export const useTimer = () => {
         saveTimerData();
 
         if (data.type === "time_added") {
-          addEvent("Timer", `Added ${data.addedTime} seconds`);
+          if (data.subscriber) {
+            const countInfo =
+              data.subscriber.subCount && data.subscriber.subCount > 1
+                ? ` x${data.subscriber.subCount}`
+                : "";
+            addEvent(
+              "Timer",
+              `Added ${data.addedTime}s via ${data.subscriber.username}${countInfo} (${data.subscriber.tierName})`
+            );
+          } else {
+            addEvent("Timer", `Added ${data.addedTime} seconds`);
+          }
         } else if (data.type === "timer_started") {
           addEvent("Timer", "Timer started");
         } else if (data.type === "timer_stopped") {
@@ -233,9 +244,11 @@ export const useTimer = () => {
 
       case "subscription":
         const subType = data.tierName || "Unknown";
+        const countInfo = data.subCount && data.subCount > 1 ? ` x${data.subCount}` : "";
+        const monthsInfo = data.months ? ` (${data.months} months)` : "";
         addEvent(
           "Subscription",
-          `${data.username} ${data.msgId} (${subType}) - +${data.timeAdded}s`
+          `${data.username} ${data.msgId}${countInfo} (${subType})${monthsInfo} - +${data.timeAdded}s`
         );
         addSubscription(data);
         latestSubscription.value = {

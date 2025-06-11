@@ -51,24 +51,14 @@ watch(
 
 // Handle saving settings
 async function handleSaveSettings() {
-  try {
-    // Save to localStorage first
-    localStorage.setItem("penta_settings", JSON.stringify(localSettings));
+  // Update the composable's settings with our local values
+  Object.assign(timerSettings.value, localSettings);
 
-    // Then save to server
-    const config = useRuntimeConfig();
-    const baseUrl = config.public.apiUrl as string;
-    const response = await fetch(`${baseUrl}/api/settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(localSettings),
-    });
-    const result = await response.json();
-    emit("save-settings", result);
-  } catch (error) {
-    const result = { success: true, message: "Settings saved locally (server sync failed)" };
-    emit("save-settings", result);
-  }
+  // Save to localStorage first
+  localStorage.setItem("penta_settings", JSON.stringify(localSettings));
+
+  // Emit to parent with the current settings to ensure correct payload
+  emit("save-settings", localSettings);
 }
 </script>
 

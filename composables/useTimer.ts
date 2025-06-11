@@ -124,11 +124,12 @@ export const useTimer = () => {
     return settings.value;
   }
 
-  function loadSettings() {
-    const saved = loadFromLocalStorage(LocalStorageKeys.SETTINGS);
-    if (saved) {
-      settings.value = { ...settings.value, ...saved };
-    }
+  async function loadSettings() {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/settings`);
+    const result = await response.json();
+    settings.value = result;
+    return result;
   }
 
   function saveTimerStyleToStorage() {
@@ -585,6 +586,7 @@ export const useTimer = () => {
     saveSettings,
     saveTimerStyle,
     initialize,
+    loadSettings,
 
     // Development/Testing
     simulateSubscription,

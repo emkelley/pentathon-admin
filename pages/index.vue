@@ -3,7 +3,7 @@
 const {
   timerData,
   events,
-  subscriptions,
+  loadSettings,
   settings,
   currentTimerStyle,
   startTimer,
@@ -86,9 +86,31 @@ async function handleSetManualTimer(totalSeconds: number) {
   showStatus(result.message, !result.success);
 }
 
-async function handleSaveSettings() {
-  const result = await saveSettings();
-  showStatus(result.message, !result.success);
+async function handleSaveSettings(settingsToSave?: any) {
+  // If settings are passed from the component, use those; otherwise use the composable's settings
+  if (settingsToSave) {
+    // Update the composable's settings first
+    Object.assign(settings.value, settingsToSave);
+
+    // Save directly with the provided settings
+    try {
+      const config = useRuntimeConfig();
+      const baseUrl = config.public.apiUrl as string;
+      const response = await fetch(`${baseUrl}/api/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settingsToSave),
+      });
+      const result = await response.json();
+      showStatus(result.message, !result.success);
+    } catch (error) {
+      showStatus("Settings saved locally (server sync failed)", false);
+    }
+  } else {
+    // Fallback to composable's saveSettings
+    const result = await saveSettings();
+    showStatus(result.message, !result.success);
+  }
 }
 
 function updateSettings(newSettings: any) {
@@ -116,7 +138,9 @@ function updateTimerStyling(newStyling: any) {
 }
 
 // Initialize on client side
-onMounted(() => {
+onMounted(async () => {
+  const settings = await loadSettings();
+  console.log(settings);
   initialize();
 });
 

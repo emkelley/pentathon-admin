@@ -72,10 +72,10 @@ export const useTimer = () => {
   const subscriptions = ref<Subscription[]>([]);
   const latestSubscription = ref<SubscriptionEvent | null>(null);
   const settings = ref<Settings>({
-    regularSubTime: 45,
-    tier2SubTime: 90,
-    tier3SubTime: 135,
-    primeSubTime: 45,
+    regularSubTime: 60,
+    tier2SubTime: 120,
+    tier3SubTime: 180,
+    primeSubTime: 60,
   });
   const currentTimerStyle = ref<TimerStyle>({
     color: "#60e9b9",

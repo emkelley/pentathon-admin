@@ -9,7 +9,7 @@
       <code class="bg-gray-800 text-gray-300 px-3 py-2 rounded-md text-sm font-mono">
         OBS Overlay:
         <a
-          href="https://penta-subathon-timer.emk.dev"
+          href="https://pentathon.emk.dev/overlay"
           target="_blank"
           class="text-blue-400 hover:text-blue-300"
         >

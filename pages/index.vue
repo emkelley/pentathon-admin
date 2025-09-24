@@ -87,29 +87,28 @@ async function handleSetManualTimer(totalSeconds: number) {
 }
 
 async function handleSaveSettings(settingsToSave?: any) {
-  // If settings are passed from the component, use those; otherwise use the composable's settings
-  if (settingsToSave) {
-    // Update the composable's settings first
-    Object.assign(settings.value, settingsToSave);
+  try {
+    console.log("Saving settings:", settingsToSave);
 
-    // Save directly with the provided settings
-    try {
-      const config = useRuntimeConfig();
-      const baseUrl = config.public.apiUrl as string;
-      const response = await fetch(`${baseUrl}/api/settings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settingsToSave),
-      });
-      const result = await response.json();
+    // If settings are passed from the component, use those; otherwise use the composable's settings
+    if (settingsToSave) {
+      // Update the composable's settings first
+      Object.assign(settings.value, settingsToSave);
+      console.log("Updated composable settings:", settings.value);
+
+      // Use composable's saveSettings (handles base URL fallback and errors)
+      const result = await saveSettings();
+      console.log("Save result:", result);
       showStatus(result.message, !result.success);
-    } catch (error) {
-      showStatus("Settings saved locally (server sync failed)", false);
+    } else {
+      // Fallback to composable's saveSettings
+      const result = await saveSettings();
+      console.log("Fallback save result:", result);
+      showStatus(result.message, !result.success);
     }
-  } else {
-    // Fallback to composable's saveSettings
-    const result = await saveSettings();
-    showStatus(result.message, !result.success);
+  } catch (error) {
+    console.error("Error in handleSaveSettings:", error);
+    showStatus("Failed to save settings", true);
   }
 }
 
@@ -139,9 +138,18 @@ function updateTimerStyling(newStyling: any) {
 
 // Initialize on client side
 onMounted(async () => {
-  const settings = await loadSettings();
-  console.log(settings);
-  initialize();
+  try {
+    // Load settings from server first to ensure we have the most up-to-date values
+    const loadedSettings = await loadSettings();
+    console.log("Loaded settings from server:", loadedSettings);
+
+    // Initialize the websocket and other connections
+    initialize();
+  } catch (error) {
+    console.error("Failed to load initial settings:", error);
+    // Still initialize even if settings load failed
+    initialize();
+  }
 });
 
 // Set page title
@@ -155,49 +163,48 @@ useHead({
       rel: "stylesheet",
       href: "https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap",
     },
+    {
+      rel: "stylesheet",
+      href: "https://fonts.googleapis.com/css2?family=Oxanium:wght@300..800&display=swap",
+    },
   ],
 });
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 p-4 text-sm">
+  <div
+    class="relative min-h-screen p-4 text-sm bg-gradient-to-br from-[#0a0f2a] via-[#11153a] to-[#0a1228] text-slate-200 overflow-hidden"
+  >
+    <div class="synthwave-grid pointer-events-none absolute inset-0"></div>
     <div
-      class="admin-container bg-slate-900/95 backdrop-blur-lg rounded-2xl p-5 shadow-2xl max-w-7xl mx-auto border border-white/10"
+      class="admin-container relative bg-[#0b0f29]/80 backdrop-blur-xl rounded-2xl p-5 shadow-2xl max-w-7xl mx-auto border border-fuchsia-500/20 ring-1 ring-fuchsia-400/10"
     >
       <!-- Header -->
       <div class="header text-center mb-5">
         <h1
-          class="text-white flex items-center justify-center gap-4 text-4xl mb-1 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text font-bold"
+          class="title-font flex items-center justify-center gap-4 text-4xl mb-1 bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-300 bg-clip-text text-transparent font-extrabold drop-shadow-[0_0_6px_rgba(168,85,247,0.65)]"
         >
           <img src="/favicon.png" alt="Pentathon Logo" class="w-10 h-10" />
-          Pentathon Timer v2
+          Pentathon Timer v3
         </h1>
-        <p class="text-gray-400 text-sm">Made by @0NEGUY in chat</p>
+        <p class="text-fuchsia-200/60 text-sm">Made by just @0NEGUY</p>
       </div>
 
-      <!-- Main Grid -->
-      <div class="main-grid grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        <TimerSection
-          :timer-data="timerData"
-          :current-timer-style="currentTimerStyle"
-          @start-timer="handleStartTimer"
-          @stop-timer="handleStopTimer"
-          @reset-timer="handleResetTimer"
-          @add-time="handleAddTime"
-          @set-manual-timer="handleSetManualTimer"
-          @show-status="showStatus"
-        />
+      <!-- Unified 12-col Grid -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+        <!-- Main Column -->
+        <div class="xl:col-span-8 flex flex-col gap-5">
+          <TimerSection
+            :timer-data="timerData"
+            :current-timer-style="currentTimerStyle"
+            @start-timer="handleStartTimer"
+            @stop-timer="handleStopTimer"
+            @reset-timer="handleResetTimer"
+            @add-time="handleAddTime"
+            @set-manual-timer="handleSetManualTimer"
+            @show-status="showStatus"
+          />
 
-        <SettingsPanel
-          :settings="settings"
-          @save-settings="handleSaveSettings"
-          @update-settings="updateSettings"
-        />
-      </div>
-
-      <!-- Content Grid -->
-      <div class="content-grid grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-        <div class="lg:col-span-2 xl:col-span-3">
           <StylingSection
             :styling="timerStyling"
             @preview-style="handlePreviewStyle"
@@ -207,8 +214,16 @@ useHead({
           />
         </div>
 
-        <div class="lg:col-span-1 xl:col-span-2 lg:col-start-3 xl:col-start-4">
-          <EventsList :events="events" />
+        <!-- Sidebar Column -->
+        <div class="xl:col-span-4">
+          <div class="sticky top-4 flex flex-col gap-5">
+            <SettingsPanel
+              :settings="settings"
+              @save-settings="handleSaveSettings"
+              @update-settings="updateSettings"
+            />
+            <EventsList :events="events" />
+          </div>
         </div>
       </div>
 
@@ -219,22 +234,37 @@ useHead({
 </template>
 
 <style scoped>
-/* Responsive adjustments */
-@media (max-width: 1200px) {
-  .content-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .content-grid > div:last-child {
-    grid-column: 1 / -1;
-  }
+/* Midnight synthwave background grid overlay */
+.synthwave-grid {
+  background-image: radial-gradient(circle at 20% 10%, rgba(236, 72, 153, 0.12), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(34, 211, 238, 0.1), transparent 45%),
+    radial-gradient(circle at 50% 80%, rgba(168, 85, 247, 0.1), transparent 40%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(168, 85, 247, 0.08) 0,
+      rgba(168, 85, 247, 0.08) 1px,
+      transparent 1px,
+      transparent 80px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(168, 85, 247, 0.08) 0,
+      rgba(168, 85, 247, 0.08) 1px,
+      transparent 1px,
+      transparent 80px
+    );
+  filter: drop-shadow(0 0 10px rgba(236, 72, 153, 0.15));
 }
 
-@media (max-width: 768px) {
-  .main-grid,
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
+/* Display font for the hero title */
+.title-font {
+  font-family: "Oxanium", "Nunito", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  letter-spacing: 0.02em;
+}
 
+/* Responsive adjustments */
+@media (max-width: 768px) {
   .admin-container {
     padding: 15px;
   }

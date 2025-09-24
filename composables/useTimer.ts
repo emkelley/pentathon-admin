@@ -9,6 +9,7 @@ interface Settings {
   tier2SubTime: number;
   tier3SubTime: number;
   primeSubTime: number;
+  giftSubTime: number;
 }
 
 interface TimerStyle {
@@ -76,6 +77,7 @@ export const useTimer = () => {
     tier2SubTime: 120,
     tier3SubTime: 180,
     primeSubTime: 60,
+    giftSubTime: 60,
   });
   const currentTimerStyle = ref<TimerStyle>({
     color: "#60e9b9",
@@ -125,11 +127,40 @@ export const useTimer = () => {
   }
 
   async function loadSettings() {
-    const baseUrl = getApiBaseUrl();
-    const response = await fetch(`${baseUrl}/api/settings`);
-    const result = await response.json();
-    settings.value = result;
-    return result;
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/settings`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await response.json();
+
+      // Update settings with server response
+      if (result.regularSubTime !== undefined) {
+        settings.value.regularSubTime = result.regularSubTime;
+      }
+      if (result.tier2SubTime !== undefined) {
+        settings.value.tier2SubTime = result.tier2SubTime;
+      }
+      if (result.tier3SubTime !== undefined) {
+        settings.value.tier3SubTime = result.tier3SubTime;
+      }
+      if (result.primeSubTime !== undefined) {
+        settings.value.primeSubTime = result.primeSubTime;
+      }
+      if (result.giftSubTime !== undefined) {
+        settings.value.giftSubTime = result.giftSubTime;
+      }
+
+      // Save the loaded settings to localStorage
+      saveSettingsToStorage();
+
+      return settings.value;
+    } catch (error) {
+      console.warn("Failed to load settings from server:", error);
+      // Return current settings as fallback
+      return settings.value;
+    }
   }
 
   function saveTimerStyleToStorage() {
@@ -173,7 +204,29 @@ export const useTimer = () => {
   // WebSocket functions
   function initWebSocket() {
     const config = useRuntimeConfig();
-    const wsUrl = config.public.wsUrl;
+    let wsUrl = config.public.wsUrl as string;
+    if (!wsUrl || wsUrl.trim() === "") {
+      // Derive WS URL from API URL if not explicitly provided
+      const apiUrl = (config.public.apiUrl as string) || "";
+      try {
+        if (apiUrl) {
+          const u = new URL(apiUrl);
+          u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+          // Assume WS is served on same host/port as API when not set
+          wsUrl = `${u.protocol}//${u.host}`;
+        } else if (process.client && location.origin) {
+          // Fallback to browser origin
+          const isSecure = location.protocol === "https:";
+          wsUrl = `${isSecure ? "wss:" : "ws:"}//${location.host}`;
+        }
+      } catch (e) {
+        // Last resort: try browser origin
+        if (process.client && location.origin) {
+          const isSecure = location.protocol === "https:";
+          wsUrl = `${isSecure ? "wss:" : "ws:"}//${location.host}`;
+        }
+      }
+    }
 
     ws = new WebSocket(wsUrl);
 
@@ -269,13 +322,54 @@ export const useTimer = () => {
         saveTimerData();
         addEvent("Timer", "🚨 TIMER ENDED! 🚨");
         break;
+
+      case "settings_updated":
+        // Handle settings updates from server, but don't override if we're actively editing
+        if (data.settings) {
+          console.log("Received settings_updated from server:", data.settings);
+          // Only update if the settings are different from what we have locally
+          // This prevents circular updates when we save settings
+          const currentSettingsStr = JSON.stringify(settings.value);
+          const newSettingsStr = JSON.stringify(data.settings);
+
+          if (currentSettingsStr !== newSettingsStr) {
+            Object.assign(settings.value, data.settings);
+            saveSettingsToStorage();
+            addEvent("System", "Settings updated from server");
+          }
+        }
+        break;
     }
   }
 
   // Helper function to get API base URL
   function getApiBaseUrl(): string {
     const config = useRuntimeConfig();
-    return config.public.apiUrl as string;
+    const configured = (config.public.apiUrl as string) || "";
+    if (configured && configured.trim() !== "") {
+      return configured;
+    }
+
+    if (process.client) {
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+
+      // Local development: default to backend on port 3000
+      if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") {
+        return `${protocol}//localhost:3000`;
+      }
+
+      // Production heuristic: try api.<host>
+      if (!hostname.startsWith("api.")) {
+        return `${protocol}//api.${hostname}`;
+      }
+
+      // Fallback to current origin
+      return window.location.origin;
+    }
+
+    // Non-browser fallback
+    return "http://localhost:3000";
   }
 
   // API functions
@@ -348,20 +442,33 @@ export const useTimer = () => {
   }
 
   async function saveSettings(): Promise<{ success: boolean; message: string }> {
+    console.log("saveSettings called with:", settings.value);
+
     // Save to localStorage immediately
     saveSettingsToStorage();
 
     try {
       const baseUrl = getApiBaseUrl();
+      console.log("Sending settings to server:", settings.value);
+
       const response = await fetch(`${baseUrl}/api/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings.value),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
+      console.log("Server response:", result);
+
+      // Don't immediately reload settings after save to avoid overwriting
       return result;
     } catch (error) {
-      return { success: true, message: "Settings saved locally (server sync failed)" };
+      console.error("Failed to save settings to server:", error);
+      return { success: false, message: "Failed to sync settings to server" };
     }
   }
 
@@ -390,7 +497,7 @@ export const useTimer = () => {
       const result = await response.json();
       return result;
     } catch (error) {
-      return { success: true, message: "Timer style saved locally (server sync failed)" };
+      return { success: false, message: "Failed to sync timer style to server" };
     }
   }
 
@@ -488,7 +595,6 @@ export const useTimer = () => {
   async function loadInitialData() {
     // First, load from localStorage (immediate)
     loadTimerData();
-    loadSettings();
     loadTimerStyleFromStorage();
 
     // Then sync with server (may update localStorage if server has newer data)
@@ -497,61 +603,64 @@ export const useTimer = () => {
 
       // Load timer state from server
       const timerResponse = await fetch(`${baseUrl}/api/timer`);
-      const serverTimerData = await timerResponse.json();
+      if (timerResponse.ok) {
+        const serverTimerData = await timerResponse.json();
 
-      // Only update if server data seems more recent or localStorage is empty
-      if (
-        !loadFromLocalStorage(LocalStorageKeys.TIMER_DATA) ||
-        serverTimerData.timeRemaining !== timerData.value.timeRemaining
-      ) {
-        timerData.value = serverTimerData;
-        saveTimerData();
+        // Only update if server data seems more recent or localStorage is empty
+        if (
+          !loadFromLocalStorage(LocalStorageKeys.TIMER_DATA) ||
+          serverTimerData.timeRemaining !== timerData.value.timeRemaining
+        ) {
+          timerData.value = {
+            timeRemaining: serverTimerData.timeRemaining,
+            isActive: serverTimerData.isActive,
+          };
+          saveTimerData();
+        }
       }
 
-      // Load settings from server
+      // Load settings from server using the dedicated function
+      await loadSettings();
+
+      // Load timer styling from server settings
       const settingsResponse = await fetch(`${baseUrl}/api/settings`);
-      const serverSettings = await settingsResponse.json();
+      if (settingsResponse.ok) {
+        const serverSettings = await settingsResponse.json();
 
-      // Update settings with server settings if available
-      if (serverSettings.regularSubTime !== undefined) {
-        settings.value.regularSubTime = serverSettings.regularSubTime;
-      }
-      if (serverSettings.tier2SubTime !== undefined) {
-        settings.value.tier2SubTime = serverSettings.tier2SubTime;
-      }
-      if (serverSettings.tier3SubTime !== undefined) {
-        settings.value.tier3SubTime = serverSettings.tier3SubTime;
-      }
-      if (serverSettings.primeSubTime !== undefined) {
-        settings.value.primeSubTime = serverSettings.primeSubTime;
-      }
+        let stylingUpdated = false;
+        if (serverSettings.timerColor) {
+          currentTimerStyle.value.color = serverSettings.timerColor;
+          stylingUpdated = true;
+        }
+        if (serverSettings.timerFont) {
+          currentTimerStyle.value.fontFamily = serverSettings.timerFont;
+          stylingUpdated = true;
+        }
+        if (serverSettings.timerShadowColor) {
+          currentTimerStyle.value.shadowColor = serverSettings.timerShadowColor;
+          stylingUpdated = true;
+        }
+        if (serverSettings.timerShadowBlur !== undefined) {
+          currentTimerStyle.value.shadowBlur = serverSettings.timerShadowBlur;
+          stylingUpdated = true;
+        }
+        if (serverSettings.timerShadowOpacity !== undefined) {
+          currentTimerStyle.value.shadowOpacity = serverSettings.timerShadowOpacity;
+          stylingUpdated = true;
+        }
+        if (serverSettings.timerShadowX !== undefined) {
+          currentTimerStyle.value.shadowX = serverSettings.timerShadowX;
+          stylingUpdated = true;
+        }
+        if (serverSettings.timerShadowY !== undefined) {
+          currentTimerStyle.value.shadowY = serverSettings.timerShadowY;
+          stylingUpdated = true;
+        }
 
-      // Load timer styling from server
-      if (serverSettings.timerColor) {
-        currentTimerStyle.value.color = serverSettings.timerColor;
+        if (stylingUpdated) {
+          saveTimerStyleToStorage();
+        }
       }
-      if (serverSettings.timerFont) {
-        currentTimerStyle.value.fontFamily = serverSettings.timerFont;
-      }
-      if (serverSettings.timerShadowColor) {
-        currentTimerStyle.value.shadowColor = serverSettings.timerShadowColor;
-      }
-      if (serverSettings.timerShadowBlur !== undefined) {
-        currentTimerStyle.value.shadowBlur = serverSettings.timerShadowBlur;
-      }
-      if (serverSettings.timerShadowOpacity !== undefined) {
-        currentTimerStyle.value.shadowOpacity = serverSettings.timerShadowOpacity;
-      }
-      if (serverSettings.timerShadowX !== undefined) {
-        currentTimerStyle.value.shadowX = serverSettings.timerShadowX;
-      }
-      if (serverSettings.timerShadowY !== undefined) {
-        currentTimerStyle.value.shadowY = serverSettings.timerShadowY;
-      }
-
-      // Save any server settings to localStorage
-      saveSettingsToStorage();
-      saveTimerStyleToStorage();
 
       addEvent("System", "Data synced with server");
     } catch (error) {
@@ -587,7 +696,8 @@ export const useTimer = () => {
     timerData: readonly(timerData),
     events: readonly(events),
     subscriptions: readonly(subscriptions),
-    settings: readonly(settings),
+    // Expose settings as mutable so the admin UI can update values before saving
+    settings,
     currentTimerStyle: readonly(currentTimerStyle),
     latestSubscription: readonly(latestSubscription),
 

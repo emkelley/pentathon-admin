@@ -8,8 +8,8 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      wsUrl: import.meta.env.WS_URL,
-      apiUrl: import.meta.env.API_URL,
+      wsUrl: import.meta.env.WS_URL || "",
+      apiUrl: import.meta.env.API_URL || "",
     },
   },
   modules: ["@nuxtjs/tailwindcss", "@nuxtjs/google-fonts"],

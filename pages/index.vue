@@ -21,6 +21,7 @@ const statusIsError = ref(false);
 const statusVisible = ref(false);
 const config = useRuntimeConfig();
 const wsUrl = config.public.wsUrl;
+const brand = config.public.brand as { name: string; icon: string };
 // Timer styling state for the form
 const timerStyling = ref({
   timerColor: currentTimerStyle.value.color,
@@ -184,8 +185,8 @@ useHead({
         <h1
           class="title-font flex items-center justify-center gap-4 text-4xl mb-1 bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-300 bg-clip-text text-transparent font-extrabold drop-shadow-[0_0_6px_rgba(168,85,247,0.65)]"
         >
-          <img src="/favicon.png" alt="Pentathon Logo" class="w-10 h-10" />
-          Pentathon Timer v3
+          <img :src="brand.icon" alt="Pentathon Logo" class="w-10 h-10" />
+          {{ brand.name }}
         </h1>
         <p class="text-fuchsia-200/60 text-sm">Made by just @0NEGUY</p>
       </div>

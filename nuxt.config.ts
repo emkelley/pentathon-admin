@@ -10,6 +10,10 @@ export default defineNuxtConfig({
     public: {
       wsUrl: import.meta.env.WS_URL || "",
       apiUrl: import.meta.env.API_URL || "",
+      brand: {
+        name: import.meta.env.BRAND_NAME || "Pentathon Timer v3",
+        icon: import.meta.env.BRAND_ICON || "https://ovrlay.b-cdn.net/creator-logos/penta.png",
+      },
     },
   },
   modules: ["@nuxtjs/tailwindcss", "@nuxtjs/google-fonts"],

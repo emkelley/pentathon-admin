@@ -155,8 +155,8 @@ onMounted(async () => {
 
 // Set page title
 useHead({
-  title: "Penta Subathon Timer - Admin Panel",
-  meta: [{ name: "description", content: "Admin panel for managing the Penta Subathon Timer" }],
+  title: `${brand.name} - Admin Panel`,
+  meta: [{ name: "description", content: `Admin panel for managing the ${brand.name}` }],
   link: [
     { rel: "preconnect", href: "https://fonts.googleapis.com" },
     { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },

@@ -10,6 +10,8 @@ export default defineNuxtConfig({
     public: {
       wsUrl: import.meta.env.WS_URL || "",
       apiUrl: import.meta.env.API_URL || "",
+      brandIcon: import.meta.env.BRAND_ICON || "",
+      brandTitle: import.meta.env.BRAND_TITLE || "",
     },
   },
   modules: ["@nuxtjs/tailwindcss", "@nuxtjs/google-fonts"],
